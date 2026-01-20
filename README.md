@@ -1,88 +1,163 @@
 # MCP Server
 
-一个基于 Go 的 MCP (Model Context Protocol) 服务器实现，使用 Gin 框架提供 HTTP 服务。
+一个基于 Go 的 MCP (Model Context Protocol) 服务器实现，专为 Vercel 部署优化，提供强大的网页抓取和 GitHub 文档下载功能。
+
+## 特性
+
+- **Vercel 优化**: 专为 Vercel 无服务器函数设计
+- **网页抓取**: 集成 gocolly 实现强大的网页内容抓取
+- **GitHub 集成**: 支持从 GitHub 仓库批量下载文档
+- **MCP 协议**: 完全兼容 Model Context Protocol
+- **链式 API**: 优雅的工具注册和配置方式
+- **Markdown 输出**: 智能转换网页内容为 Markdown 格式
+
+## 快速开始
+
+### 本地开发
+
+```bash
+# 克隆项目
+git clone https://github.com/fromsko/vercel-gin-mcp.git
+cd vercel-gin-mcp
+
+# 安装依赖
+go mod download
+
+# 运行本地服务
+go run api/index.go
+```
+
+### Vercel 部署
+
+```bash
+# 安装 Vercel CLI
+npm i -g vercel
+
+# 部署到 Vercel
+vercel
+```
 
 ## 项目结构
 
 ```
-mcp-server/
-├── cmd/                    # 应用程序入口点
-│   └── main.go            # 主程序文件
-├── config/                # 配置管理
-│   └── config.go          # 配置加载和管理
-├── handlers/              # 请求处理器
-│   └── hello.go           # Hello World 工具处理器
-├── server/                # 服务器相关代码
-│   ├── server.go          # 服务器管理
-│   ├── http/              # HTTP 服务器
-│   │   └── server.go      # Gin 路由和中间件
-│   └── mcp/               # MCP 相关
-│       └── tools.go       # MCP 工具管理
+vercel-gin-mcp/
+├── api/                   # Vercel 函数入口
+│   └── index.go           # 主入口点和工具注册
+├── handler/               # 处理器模块
+│   └── mcp/               # MCP 相关实现
+│       ├── mcp.go         # MCP 服务器核心
+│       └── tools/         # 工具实现
+│           ├── fetch.go   # 网页抓取工具
+│           └── github.go  # GitHub 工具
+├── docs/                  # 文档
+│   ├── deployment-guide.md
+│   ├── go-webdav-client.md
+│   └── mcp-go-tutorial.md
 ├── go.mod                 # Go 模块定义
 ├── go.sum                 # Go 模块依赖锁定
+├── vercel.json            # Vercel 配置
 └── README.md              # 项目说明
 ```
 
-## 快速开始
+## 架构设计
 
-### 配置
+### MCP 服务器构建
 
-项目使用 godotenv 管理环境变量。你可以通过以下两种方式配置服务器：
+采用链式调用风格构建 MCP 服务器：
 
-#### 方式一：使用 .env 文件（推荐）
+```go
+// 创建服务器
+server := mcp.New("mcp-server").Version("1.0.0")
 
-1. 复制 `.env.example` 文件为 `.env`：
-   ```bash
-   cp .env.example .env
-   ```
-
-2. 根据需要修改 `.env` 文件中的配置值
-
-#### 方式二：使用环境变量
-
-可以通过以下环境变量配置服务器：
-
-- `SERVER_NAME`: 服务器名称（默认: "Demo 🚀"）
-- `SERVER_VERSION`: 服务器版本（默认: "1.0.0"）
-- `PORT`: 服务器端口（默认: "8080"）
-- `HOST`: 服务器主机（默认: "0.0.0.0"）
-- `GIN_MODE`: Gin 运行模式（默认: "release"）
-
-> 注意：如果同时设置了 `.env` 文件和环境变量，环境变量的值将优先使用。
-
-### 运行服务器
-
-```bash
-# 进入项目目录
-cd mcp-server
-
-# 运行服务器
-go run cmd/main.go
+// 注册工具
+server.Register(
+    mcp.NewTool("tool_name").
+        Desc("工具描述").
+        Param("参数", "参数描述", true).
+        Handle(func(ctx *mcp.Context) *mcp.ToolResult {
+            // 工具逻辑
+        }),
+)
 ```
 
-服务器将在 `http://localhost:8080` 启动。
+## API 端点
 
-### API 端点
+### Vercel 函数
 
-- `GET /`: 服务器欢迎信息
-- `GET /health`: 健康检查
-- `GET /sse`: SSE 连接端点
-- `POST /message`: 消息处理端点
+- `POST https://your-app.vercel.app/mcp` - MCP 协议端点
 
-## 开发指南
+## 可用工具
 
-### 添加新的工具
+- **echo** - 回显输入文本
+- **add** - 计算两个数字的和
+- **fetch** - 抓取网页内容并转换为 Markdown 格式
+- **fetch_md** - 抓取网页内容，仅返回 Markdown 文本
+- **download_docs** - 从 GitHub 仓库下载文档文件
+- **download_docs_md** - 从 GitHub 仓库下载文档，返回合并的 Markdown
 
-1. 在 `handlers/` 目录下创建新的处理器文件
-2. 在 `server/mcp/tools.go` 中添加工具定义
-3. 在 `cmd/main.go` 中注册新的工具
+## 工具使用示例
 
-### 修改服务器配置
+### 网页抓取
 
-在 `config/config.go` 中添加新的配置项，并使用环境变量进行配置。
+```json
+{
+  "name": "fetch",
+  "arguments": {
+    "url": "https://example.com"
+  }
+}
+```
+
+### GitHub 文档下载
+
+```json
+{
+  "name": "download_docs",
+  "arguments": {
+    "repo": "https://github.com/user/repo",
+    "path": "docs"
+  }
+}
+```
+
+
+## 开发
+
+### 添加新工具
+
+在 `api/index.go` 中注册新工具：
+
+```go
+server.Register(
+    mcp.NewTool("my_tool").
+        Desc("工具描述").
+        String("param", "参数描述", true).
+        Handle(func(ctx *mcp.Context) *mcp.ToolResult {
+            // 实现你的逻辑
+            return ctx.Text("结果")
+        }),
+)
+```
+
+### 本地开发
+
+```bash
+# 使用 air 实现热重载
+go install github.com/air-verse/air@latest
+air
+```
+
+## 部署
+
+详细的部署指南请参考 [deployment-guide.md](./docs/deployment-guide.md)
 
 ## 依赖
 
-- [Gin](https://github.com/gin-gonic/gin): HTTP Web 框架
-- [mcp-go](https://github.com/mark3labs/mcp-go): MCP Go 实现
-- [godotenv](https://github.com/joho/godotenv): 从 .env 文件加载环境变量
+- [Gin](https://github.com/gin-gonic/gin) v1.11.0 - HTTP Web 框架
+- [go-git](https://github.com/go-git/go-git/v5) v5.16.4 - Git 操作库
+- [gocolly](https://github.com/gocolly/colly/v2) v2.3.0 - 网页爬虫框架
+- [mergo](https://github.com/dario-cat/mergo) v1.0.0 - 结构体合并工具
+
+## 许可证
+
+[MIT License](./LICENSE)
