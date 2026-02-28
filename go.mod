@@ -3,6 +3,7 @@ module mcp-server
 go 1.24.9
 
 require (
+	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/gocolly/colly/v2 v2.3.0
@@ -12,7 +13,6 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/PuerkitoBio/goquery v1.11.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/antchfx/htmlquery v1.3.5 // indirect
 	github.com/antchfx/xmlquery v1.5.0 // indirect
