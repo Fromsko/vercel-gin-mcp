@@ -1,0 +1,49 @@
+# vercel-gin-mcp
+
+> A Go-based MCP (Model Context Protocol) server optimized for Vercel deployment, featuring web scraping and GitHub document download capabilities with concurrent goroutine pools and RAG functionality.
+
+This server provides tools for fetching web content, downloading GitHub documentation, and performing recursive crawling with RAG search capabilities. It's designed for efficient concurrent processing using goroutine pools.
+
+## Core Features
+
+- [MCP Protocol Support](https://modelcontextprotocol.ai/) - Full compatibility with Model Context Protocol
+- [Vercel Optimization](https://vercel.com/) - Optimized for serverless deployment
+- [Concurrent Processing](./handler/mcp/concurrent/pool.go) - Goroutine pools for efficient resource management
+- [Web Scraping](./handler/mcp/tools/scraper.go) - HTML to Markdown conversion using gocolly
+- [GitHub Integration](./handler/mcp/tools/downhub.go) - Download documentation from GitHub repositories
+- [RAG Search](./handler/mcp/tools/rag.go) - Recursive crawling with BM25-based search
+- [Multi-site Crawling](./handler/mcp/tools/crawler.go) - Concurrent crawling of multiple websites
+
+## API Endpoints
+
+- [MCP Endpoint](./api/index.go) - Main MCP protocol endpoint at `/mcp`
+
+## Tools Available
+
+- [echo](./api/index.go) - Simple text echo functionality
+- [add](./api/index.go) - Basic arithmetic operations
+- [fetch](./api/index.go) - Single URL web scraping to Markdown
+- [fetch_md](./api/index.go) - Fetch web content returning only Markdown
+- [download_docs](./api/index.go) - Download GitHub repository documents
+- [download_docs_md](./api/index.go) - Download GitHub docs as combined Markdown
+- [rag_crawl](./api/index.go) - Recursive crawl with RAG search on single site
+- [rag_crawl_multi](./api/index.go) - Concurrent crawling of multiple sites with RAG search
+
+## Technical Details
+
+- [Go Implementation](./go.mod) - Built with Go 1.24+
+- [Dependencies](./go.mod) - Gin, gocolly, go-git, and other libraries
+- [Concurrent Utilities](./handler/mcp/utils/math.go) - Helper functions for concurrent operations
+
+## Documentation
+
+- [Project README](./README.md) - Main project documentation
+- [Deployment Guide](./docs/deployment-guide.md) - Vercel deployment instructions
+- [MCP Tutorial](./docs/mcp-go-tutorial.md) - Go MCP implementation guide
+- [Goroutine Pool Comparison](./docs/go-goroutine-pool-libraries.md) - Analysis of concurrent libraries
+- [Concurrent RAG Enhancements](./docs/concurrent-rag-enhancements.md) - Documentation of concurrent processing features
+
+## Optional
+
+- [Vercel Configuration](./vercel.json) - Deployment configuration
+- [Development Tools](./cmd/server/main.go) - Additional server implementation (may be incomplete)

@@ -2,7 +2,9 @@ package api
 
 import (
 	"fmt"
+	"math"
 	"net/http"
+	"strings"
 
 	"mcp-server/handler/mcp"
 	"mcp-server/handler/mcp/tools"
@@ -131,6 +133,160 @@ func init() {
 				}
 
 				return ctx.Markdown(result.ToMarkdown())
+			}),
+	)
+
+	// 递归爬取 + 内存 RAG 检索工具
+	server.Register(
+		mcp.NewTool("rag_crawl").
+			Desc("递归爬取网站，建立内存索引，支持关键词检索相关内容").
+			String("url", "起始 URL，将从此页面开始递归爬取", true).
+			String("query", "检索关键词，在爬取的内容中搜索相关片段", true).
+			Number("max_depth", "最大递归深度（默认 2）", false).
+			Number("max_pages", "最大爬取页面数（默认 20）", false).
+			Number("top_k", "返回最相关的 K 个结果（默认 5）", false).
+			Handle(func(ctx *mcp.Context) *mcp.ToolResult {
+				startURL := ctx.String("url")
+				query := ctx.String("query")
+				maxDepth := ctx.Int("max_depth")
+				maxPages := ctx.Int("max_pages")
+				topK := ctx.Int("top_k")
+
+				if maxDepth <= 0 {
+					maxDepth = 2
+				}
+				if maxPages <= 0 {
+					maxPages = 20
+				}
+				if topK <= 0 {
+					topK = 5
+				}
+
+				crawlResult, err := tools.QuickCrawl(startURL, maxDepth, maxPages)
+				if err != nil {
+					return ctx.Error("爬取失败: " + err.Error())
+				}
+
+				if crawlResult.Total == 0 {
+					return ctx.Error("未爬取到任何内容")
+				}
+
+				index := tools.NewRAGIndex()
+				index.AddFromCrawl(crawlResult, 500)
+
+				results := index.Search(query, topK)
+				if len(results) == 0 {
+					return ctx.JSON(mcp.H{
+						"crawled_pages": crawlResult.Total,
+						"index_stats":   index.Stats(),
+						"results":       []any{},
+						"message":       "未找到相关内容，请尝试其他关键词",
+					})
+				}
+
+				type resultItem struct {
+					Title    string  `json:"title"`
+					URL      string  `json:"url"`
+					Score    float64 `json:"score"`
+					Content  string  `json:"content"`
+				}
+
+				items := make([]resultItem, 0, len(results))
+				for _, r := range results {
+					items = append(items, resultItem{
+						Title:   r.Chunk.Title,
+						URL:     r.Chunk.URL,
+						Score:   math.Round(r.Score*100) / 100,
+						Content: r.Chunk.Text,
+					})
+				}
+
+				return ctx.JSON(mcp.H{
+					"crawled_pages": crawlResult.Total,
+					"index_stats":   index.Stats(),
+					"results":       items,
+				})
+			}),
+	)
+
+	// 并发多 URL 爬取 + RAG 检索工具
+	server.Register(
+		mcp.NewTool("rag_crawl_multi").
+			Desc("并发爬取多个网站，建立内存索引，支持关键词检索相关内容").
+			String("urls", "逗号分隔的 URL 列表，将并发爬取这些网站", true).
+			String("query", "检索关键词，在爬取的内容中搜索相关片段", true).
+			Number("max_depth", "最大递归深度（默认 2）", false).
+			Number("max_pages_per_url", "每个 URL 最大爬取页面数（默认 10）", false).
+			Number("top_k", "返回最相关的 K 个结果（默认 5）", false).
+			Handle(func(ctx *mcp.Context) *mcp.ToolResult {
+				urlsStr := ctx.String("urls")
+				query := ctx.String("query")
+				maxDepth := ctx.Int("max_depth")
+				maxPagesPerURL := ctx.Int("max_pages_per_url")
+				topK := ctx.Int("top_k")
+
+				if maxDepth <= 0 {
+					maxDepth = 2
+				}
+				if maxPagesPerURL <= 0 {
+					maxPagesPerURL = 10
+				}
+				if topK <= 0 {
+					topK = 5
+				}
+
+				// Parse URLs
+				urls := strings.Split(urlsStr, ",")
+				for i, url := range urls {
+					urls[i] = strings.TrimSpace(url)
+				}
+
+				crawlResult, err := tools.QuickCrawlMulti(urls, maxDepth, maxPagesPerURL)
+				if err != nil {
+					return ctx.Error("爬取失败: " + err.Error())
+				}
+
+				if crawlResult.Total == 0 {
+					return ctx.Error("未从任何网站爬取到内容")
+				}
+
+				index := tools.NewRAGIndex()
+				index.AddFromCrawl(crawlResult, 500)
+
+				results := index.Search(query, topK)
+				if len(results) == 0 {
+					return ctx.JSON(mcp.H{
+						"crawled_urls_count": len(urls),
+						"crawled_pages":      crawlResult.Total,
+						"index_stats":        index.Stats(),
+						"results":            []any{},
+						"message":            "未找到相关内容，请尝试其他关键词",
+					})
+				}
+
+				type resultItem struct {
+					Title    string  `json:"title"`
+					URL      string  `json:"url"`
+					Score    float64 `json:"score"`
+					Content  string  `json:"content"`
+				}
+
+				items := make([]resultItem, 0, len(results))
+				for _, r := range results {
+					items = append(items, resultItem{
+						Title:   r.Chunk.Title,
+						URL:     r.Chunk.URL,
+						Score:   math.Round(r.Score*100) / 100,
+						Content: r.Chunk.Text,
+					})
+				}
+
+				return ctx.JSON(mcp.H{
+					"crawled_urls_count": len(urls),
+					"crawled_pages":      crawlResult.Total,
+					"index_stats":        index.Stats(),
+					"results":            items,
+				})
 			}),
 	)
 
